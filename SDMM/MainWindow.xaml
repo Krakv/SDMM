@@ -5,8 +5,119 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:SDMM"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="MainWindow" Height="720" Width="1280">
 
+    <Window.Resources>
+        <Style x:Key="Style1" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="Style2" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
+
+    
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="400" MinWidth="200" MaxWidth="500"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+
+        <Menu Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="3" FontSize="14">
+            <MenuItem Header="Файл">
+                <MenuItem Header="Открыть" Click="Open_Click"/>
+                <MenuItem Header="Сохранить" Click="Save_Click"/>
+                <Separator/>
+                <MenuItem Header="Выход" Click="Exit_Click"/>
+            </MenuItem>
+
+            <MenuItem Header="Правка">
+                <MenuItem Header="Копировать" Command="Copy"/>
+                <MenuItem Header="Вставить" Command="Paste"/>
+            </MenuItem>
+
+            <MenuItem Header="Справка">
+                <MenuItem Header="О программе" Click="About_Click"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Разделитель, который можно двигать -->
+        <GridSplitter Grid.Column="1" Grid.Row="1" Width="5" HorizontalAlignment="Stretch" Background="Gray"/>
+
+        <!-- Левая панель -->
+        <Grid Grid.Column="0" Grid.Row="1" Background="White">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox VerticalAlignment="Stretch" Margin="2,2,2,2" Grid.Column="0" Padding="5,5,5,5" FontSize="14" ></TextBox>
+                <Button Content="Поиск" Click="Button_Click" FontSize="14" Margin="2,2,2,2" Grid.Column="1" />
+            </Grid>
+
+            <ListBox x:Name="DocumentsList" Grid.Row="1">
+                <ListBoxItem MouseDoubleClick="Document_Click" Tag="1">
+                    <StackPanel Margin="10,5,10,5" Width="350">
+                        <Separator Margin="0,0,0,10"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⭐" FontSize="16" Margin="5"/>
+                            <TextBlock Text="Название документа" FontWeight="Bold" Style="{StaticResource Style1}"/>
+                        </StackPanel>
+                        <TextBlock Text="Последняя версия" Style="{StaticResource Style1}"/>
+                        <TextBlock Text="Размер" Style="{StaticResource Style1}"/>
+                        <TextBlock Text="Дата изменения" Style="{StaticResource Style1}"/>
+                        <TextBlock Text="Теги" FontStyle="Italic" Style="{StaticResource Style1}"/>
+                        <Separator Margin="0,10,0,0"/>
+                    </StackPanel>
+                </ListBoxItem>
+            </ListBox>
+        </Grid>
+        <Grid Grid.Column="2" Grid.Row="1" >
+            <Grid.RowDefinitions>
+                <RowDefinition Height="300"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel x:Name="DocumentInfo" Grid.Row="0" Margin="10">
+                <StackPanel Orientation="Horizontal">
+                    <Image/>
+                    <TextBlock x:Name="DocumentInfo_DocName" Text="Название документа" FontWeight="Bold" FontSize="24"/>
+                </StackPanel>
+                <TextBlock x:Name="DocumentInfo_DocType" Text="Тип документа" Style="{StaticResource Style2}"/>
+                <TextBlock x:Name="DocumentInfo_DocVer" Text="Последняя версия" Style="{StaticResource Style2}"/>
+                <TextBlock x:Name="DocumentInfo_DocVal" Text="Размер" Style="{StaticResource Style2}"/>
+                <TextBlock x:Name="DocumentInfo_DocDate" Text="Дата изменения" Style="{StaticResource Style2}"/>
+                <TextBlock x:Name="DocumentInfo_DocTags" Text="Теги" FontStyle="Italic" Style="{StaticResource Style2}"/>
+            </StackPanel>
+
+            <GridSplitter Grid.Row="1" Height="5" Background="Gray" HorizontalAlignment="Stretch"/>
+
+            <ListBox x:Name="VersionsList" Grid.Row="2">
+                <ListBoxItem HorizontalAlignment="Stretch">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Версия 1"/>
+                        <TextBlock Text=" | "/>
+                        <TextBlock Text="15 ноября 2024"/>
+                    </StackPanel>
+                </ListBoxItem>
+            </ListBox>
+        </Grid>
     </Grid>
+
 </Window>
