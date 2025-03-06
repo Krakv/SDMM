@@ -34,8 +34,7 @@ namespace SDMM
         {
             WordFile wordFile = new WordFile(fileName);
 
-            //Body parts = wordFile.Read();
-
+            //Body parts = wordFile.body;
             //var paragraphs = parts.Elements<Paragraph>().Select(p => p.InnerText);
 
             List<string[]> paragraphs = wordFile.ReadText();
@@ -43,25 +42,79 @@ namespace SDMM
             FlowDocument doc = new FlowDocument();
             
 
+            System.Windows.Documents.Section newSection = null;
             foreach(string[] item in paragraphs)
             {
-                string id = item[0];
+                string name = item[0];
                 string paragraph = item[1];
+                string id = item[2];
 
                 System.Windows.Documents.Paragraph newParagraph = new System.Windows.Documents.Paragraph() { };
 
-                if (id.StartsWith("heading"))
+                if (name.StartsWith("heading"))
                 {
+                    if (newSection != null)
+                        doc.Blocks.Add(newSection);
+
+                    newSection = new Section() { Tag = id };
+
+                    var listBoxItem = new ListBoxItem() { Tag = id, Content = paragraph };
+                    listBoxItem.MouseDoubleClick += on_Double_Click_Section;
+                    headings.Items.Add(listBoxItem);
+
                     newParagraph.FontWeight = FontWeights.Bold;
                     newParagraph.FontSize = 16;
                     newParagraph.TextAlignment = System.Windows.TextAlignment.Center;
                 }
 
                 newParagraph.Inlines.Add(new System.Windows.Documents.Run(paragraph));
-                doc.Blocks.Add(newParagraph);
+                if (newSection != null)
+                {
+                    newSection.Blocks.Add(newParagraph);
+                }
+                else
+                {
+                    doc.Blocks.Add(newParagraph);
+                }
             }
+            if (newSection != null)
+                doc.Blocks.Add(newSection);
 
             MainDoc.Document = doc;
+        }
+
+        public void LoadSections()
+        {
+
+        }
+
+        private void on_Double_Click_Section(object sender, MouseButtonEventArgs e)
+        {
+            ListBoxItem item = (ListBoxItem)sender;
+
+            var targetSection = MainDoc.Document.Blocks
+                .OfType<Section>()
+                .FirstOrDefault(s => s.Tag == item.Tag);
+
+            if (targetSection != null)
+            {
+                TextPointer sectionStart = targetSection.ContentStart;
+
+                if (sectionStart != null)
+                {
+                    MainDoc.CaretPosition = sectionStart;
+
+                    MainDoc.Focus();
+
+                    Rect rect = MainDoc.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
+                    MainDoc.ScrollToVerticalOffset(rect.Top + MainDoc.VerticalOffset - 20);
+                }
+            }
+            else
+            {
+                MessageBox.Show("Секция не найдена!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
         }
 
     }

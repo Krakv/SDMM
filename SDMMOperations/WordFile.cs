@@ -22,11 +22,6 @@ namespace SDMMOperations
             ReadHeadings(stylesElements);
         }
 
-        public Body Read()
-        {
-            return body;
-        }
-
         public List<string[]> ReadText()
         {
             List<string[]> result = new List<string[]>();
@@ -37,16 +32,16 @@ namespace SDMMOperations
                 {
                     if (IsHeading(paragraph, out int level))
                     {
-                        result.Add(["heading " + level, $"\nЗАГОЛОВОК {level}: {paragraph.InnerText.ToUpper()}\n"]);
+                        result.Add(["heading " + level, paragraph.InnerText.ToUpper(), paragraph.ParagraphId]);
                     }
                     else if (!paragraph.Elements<Drawing>().Any())
                     {
-                        result.Add(["p", paragraph.InnerText]);
+                        result.Add(["p", paragraph.InnerText, paragraph.ParagraphId]);
                     }
                 }
                 else if (element is Table table)
                 {
-                    result.Add(["tbl", "\n[Таблица]\n" + ReadTable(table)]);
+                    result.Add(["tbl", "\n[Таблица]\n" + ReadTable(table), null]);
                 }
             }
 
@@ -65,7 +60,7 @@ namespace SDMMOperations
             }
         }
 
-        static string ReadTable(Table table)
+        private static string ReadTable(Table table)
         {
             string tableText = "";
             foreach (var row in table.Elements<TableRow>())
@@ -79,7 +74,7 @@ namespace SDMMOperations
             return tableText;
         }
 
-        bool IsHeading(Paragraph paragraph, out int level)
+        private bool IsHeading(Paragraph paragraph, out int level)
         {
             level = 0;
             var pPr = paragraph.Elements<ParagraphProperties>().FirstOrDefault();

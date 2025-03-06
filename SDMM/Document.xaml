@@ -11,19 +11,37 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
+            <ColumnDefinition MinWidth="200" Width="Auto"/>
             <ColumnDefinition Width="*"/>
+            <ColumnDefinition MinWidth="270" Width="270"/>
         </Grid.ColumnDefinitions>
 
-        <!--<ScrollViewer>
-            <DockPanel HorizontalAlignment="Center" Width="1024" Background="WhiteSmoke">
-                <TextBlock x:Name="MainDoc" Padding="100" TextWrapping="Wrap" FontSize="18" FontFamily="TimesNewRoman" TextAlignment="Justify" LineHeight="30"/>
-            </DockPanel>
-        </ScrollViewer>-->
+        <Grid Grid.Column="0">
+            <ListBox x:Name="headings"/>
+        </Grid>
+
+        <GridSplitter BorderThickness="2" BorderBrush="Gray"/>
+
         
-        <ScrollViewer>
-            <DockPanel HorizontalAlignment="Center" Width="1024" Background="WhiteSmoke">
-                <RichTextBox x:Name="MainDoc" Padding="100" FontSize="18" FontFamily="TimesNewRoman" HorizontalContentAlignment="Stretch"/>
-            </DockPanel>
-        </ScrollViewer>
+        <RichTextBox x:Name="MainDoc" Grid.Column="1" Padding="20" FontSize="18" FontFamily="TimesNewRoman" HorizontalAlignment="Center" Width="1024" Background="WhiteSmoke" HorizontalContentAlignment="Stretch" IsReadOnlyCaretVisible="True" IsReadOnly="True" ScrollViewer.CanContentScroll="True" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"/>
+        
+
+        <GridSplitter Grid.Column="1" BorderThickness="2" BorderBrush="Gray"/>
+
+        <Grid Grid.Column="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="60"/>
+            </Grid.RowDefinitions>
+
+            <ScrollViewer Grid.Row="0">
+                <TextBox TextWrapping="Wrap" Padding="20" AcceptsReturn="True" IsEnabled="False"/>
+            </ScrollViewer>
+
+            <WrapPanel Grid.Row="1" Background="WhiteSmoke">
+                <Button Content="Сохранить" Margin="5" Width="125" Height="50"/>
+                <Button Content="Отменить" Margin="5" Width="125" Height="50"/>
+            </WrapPanel>
+        </Grid>
     </Grid>
 </Window>

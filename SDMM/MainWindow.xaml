@@ -32,6 +32,7 @@
         </Grid.RowDefinitions>
 
 
+        <!-- Меню -->
         <Menu Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="3" FontSize="14">
             <MenuItem Header="Файл">
                 <MenuItem Header="Открыть" Click="Open_Click"/>
@@ -50,7 +51,6 @@
             </MenuItem>
         </Menu>
 
-        <!-- Разделитель, который можно двигать -->
         <GridSplitter Grid.Column="1" Grid.Row="1" Width="5" HorizontalAlignment="Stretch" Background="Gray"/>
 
         <!-- Левая панель -->
@@ -87,6 +87,8 @@
                 </ListBoxItem>
             </ListBox>
         </Grid>
+
+        <!-- Правая панель -->
         <Grid Grid.Column="2" Grid.Row="1" >
             <Grid.RowDefinitions>
                 <RowDefinition Height="300"/>
@@ -94,6 +96,7 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
+            <!-- Информация о документе -->
             <StackPanel x:Name="DocumentInfo" Grid.Row="0" Margin="10">
                 <StackPanel Orientation="Horizontal">
                     <Image/>
@@ -108,6 +111,7 @@
 
             <GridSplitter Grid.Row="1" Height="5" Background="Gray" HorizontalAlignment="Stretch"/>
 
+            <!-- Версии -->
             <ListBox x:Name="VersionsList" Grid.Row="2">
                 <ListBoxItem HorizontalAlignment="Stretch">
                     <StackPanel Orientation="Horizontal">
