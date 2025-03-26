@@ -1,16 +1,11 @@
-﻿using Microsoft.Win32;
+﻿using DocumentFormat.OpenXml.Office2010.Word;
+using MySqlX.XDevAPI.Common;
 using SDMMOperations;
-using System.IO;
-using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace SDMM
 {
@@ -20,14 +15,11 @@ namespace SDMM
     public partial class MainWindow : Window
     {
 
+        string chosen_document_id = null;
+
         public MainWindow()
         {
             InitializeComponent();
-            LoadDocuments(new List<string[]> {  new string[7] { "1", "Doc", "ТЗ", "1.0", "192kb", "26.02.2025", "#tag" }, 
-                                                new string[7] { "2", "Doc1", "ТЗ", "1.1", "193kb", "26.02.2025", "#tag1 #tag2" },
-                                                new string[7] { "2", "Doc1", "ТЗ", "1.1", "193kb", "26.02.2025", "#tag1 #tag2" },
-                                                new string[7] { "2", "Doc1", "ТЗ", "1.1", "193kb", "26.02.2025", "#tag1 #tag2" },
-                                                new string[7] { "2", "Doc1", "ТЗ", "1.1", "193kb", "26.02.2025", "#tag1 #tag2" } });
         }
 
         private void LoadDocuments(List<string[]> docs)
@@ -35,86 +27,114 @@ namespace SDMM
             DocumentsList.Items.Clear();
             foreach (string[] doc in docs)
             {
-                StackPanel panel = new StackPanel() { Width = 350, Margin = new Thickness(10, 5, 10, 5) };
+                StackPanel panel = new StackPanel() { MinWidth = 350, Margin = new Thickness(10, 5, 10, 5) };
                 panel.Children.Add(new Separator() { Margin = new Thickness(0, 0, 0, 10) });
 
                 StackPanel docName = new StackPanel() { Orientation = Orientation.Horizontal };
                 docName.Children.Add(new TextBlock() { Text = "*", FontSize = 16, FontWeight = FontWeight.FromOpenTypeWeight(900), Margin = new Thickness(5, 5, 5, 5) });
-                docName.Children.Add(new TextBlock() { Text = doc[1], FontSize = 16, FontWeight = FontWeight.FromOpenTypeWeight(900), Margin = new Thickness(5, 5, 5, 5) });
+                docName.Children.Add(new TextBlock() { Text = $"{doc[1]} - {doc[2]}", FontSize = 16, FontWeight = FontWeight.FromOpenTypeWeight(900), Margin = new Thickness(5, 5, 5, 5), TextWrapping = TextWrapping.Wrap, MaxWidth=300 });
 
                 panel.Children.Add(docName);
-                panel.Children.Add(new TextBlock() { Text = doc[2], Style = (Style)this.Resources["Style1"] });
-                panel.Children.Add(new TextBlock() { Text = doc[3], Style = (Style)this.Resources["Style1"] });
-                panel.Children.Add(new TextBlock() { Text = doc[4], Style = (Style)this.Resources["Style1"] });
-                panel.Children.Add(new TextBlock() { Text = doc[5], Style = (Style)this.Resources["Style1"] });
-                panel.Children.Add(new TextBlock() { Text = doc[6], Style = (Style)this.Resources["Style1"] });
+                panel.Children.Add(new TextBlock() { Text = "Статус: " + doc[3], Style = (Style)this.Resources["Style1"] });
+                panel.Children.Add(new TextBlock() { Text = "Версия: " + doc[4], Style = (Style)this.Resources["Style1"] });
+                panel.Children.Add(new TextBlock() { Text = "Автор: " + doc[5], Style = (Style)this.Resources["Style1"] });
+                panel.Children.Add(new TextBlock() { Text = "Размер: " + doc[6], Style = (Style)this.Resources["Style1"] });
+                panel.Children.Add(new TextBlock() { Text = "Дата: " + doc[7], Style = (Style)this.Resources["Style1"] });
+                panel.Children.Add(new TextBlock() { Text = "Теги: " + doc[8], Style = (Style)this.Resources["Style1"] });
 
                 panel.Children.Add(new Separator() { Margin = new Thickness(0, 10, 0, 0) });
 
                 ListBoxItem item = new ListBoxItem() { Content = panel, Tag = doc[0] };
                 item.MouseDoubleClick += Document_Click;
+                item.ContextMenu = GetDocumentContextMenu(doc[0]);
                 
                 DocumentsList.Items.Add(item);
             }
         }
 
-        private void LoadVersions(List<string[]> vers)
+        private void LoadVersions(List<Dictionary<string, string>> vers)
         {
             VersionsList.Items.Clear();
-            foreach (string[] ver in vers)
+            foreach (var ver in vers)
             {
                 StackPanel panel = new StackPanel() { Orientation = Orientation.Horizontal };
-                panel.Children.Add(new TextBlock() { Text = ver[0] });
+                panel.Children.Add(new TextBlock() { Text = "Версия: " + ver["version"] });
                 panel.Children.Add(new TextBlock() { Text = " | " });
-                panel.Children.Add(new TextBlock() { Text = ver[1] });
+                panel.Children.Add(new TextBlock() { Text = "Дата создания: " + ver["create_date"] });
 
-                ListBoxItem item = new ListBoxItem() { Content = panel };
+                ListBoxItem item = new ListBoxItem() { Content = panel, Tag = ver["id"] };
+                item.MouseDoubleClick += OpenVersion_Click;
+                item.ContextMenu = GetVersionContextMenu(ver["id"]);
                 VersionsList.Items.Add(item);
             }
+            SaveNewVersionButton.Visibility = Visibility.Visible;
         }
 
         private void LoadDocumentInfo(string[] doc)
         {
-            DocumentInfo_DocName.Text = doc[1];
-            DocumentInfo_DocType.Text = doc[2];
-            DocumentInfo_DocVer.Text = doc[3];
-            DocumentInfo_DocVal.Text = doc[4];
-            DocumentInfo_DocDate.Text = doc[5];
-            DocumentInfo_DocTags.Text = doc[6];
+            chosen_document_id = doc[0];
+            DocumentInfo_DocProjectName.Text = "Название проекта: " + doc[1];
+            DocumentInfo_DocTypeName.Text = "Название типа документа: " + doc[2];
+            DocumentInfo_DocStatus.Text = "Статус: " + doc[3];
+            DocumentInfo_DocVer.Text = "Последняя версия документа: " + doc[4];
+            DocumentInfo_DocAuthor.Text = "Автор: " + doc[5];
+            DocumentInfo_DocSize.Text = "Размер документа: " + doc[6];
+            DocumentInfo_DocDate.Text = "Дата изменения информации: " + doc[7];
+            DocumentInfo_DocTags.Text = "Теги: " + doc[8];
         }
 
         private void Document_Click(object sender, RoutedEventArgs e)
         {
-            LoadDocumentInfo(["1", "Doc", "ТЗ", "1.0", "192kb", "26.02.2025", "#tag"]);
-            LoadVersions(new List<string[]> {  new string[7] { "1", "2", "3", "4", "6", "7", "8" },
-                                                new string[7] { "2", "2", "3", "5", "5", "7", "8" },});
-
-        }
-
-        private void Open_Click(object sender, RoutedEventArgs e)
-        {
-            var dialog = new Microsoft.Win32.OpenFileDialog();
-            dialog.FileName = "Document";
-            dialog.DefaultExt = ".docx"; 
-            dialog.Filter = "Text documents (.docx)|*.docx";
-
-            bool? result = dialog.ShowDialog();
-
-            if (result == true)
+            this.Cursor = Cursors.Wait;
+            ListBoxItem? item = sender as ListBoxItem;
+            if (item != null)
             {
-                string filename = dialog.FileName;
+                string? document_id = item.Tag.ToString();
+                if (document_id != null)
+                {
+                    LoadDocumentInfo(document_id);
+                }
             }
-
-
-            SDMM.Document document = new SDMM.Document(dialog.FileName);
-
-            document.Show();
-
+            this.Cursor = Cursors.Arrow;
         }
 
-        private void Save_Click(object sender, RoutedEventArgs e)
+        private void LoadDocumentInfo(string document_id)
         {
-            MessageBox.Show("Сохранение файла...");
+            var document = SQLQuery.GetDocument(document_id)[0];
+            var versions = SQLQuery.ReadVersions(document["id"]);
+
+            var document_types = SQLQuery.GetDocumentTypeInfo(document["type_id"]);
+            string document_type = document_types[0]["name"];
+            string tags = "";
+            foreach (var tag in SQLQuery.ReadTags(document["id"]))
+            {
+                tags += tag["name"] + " ";
+            }
+            string project = SQLQuery.GetProject(document["project_id"])[0]["name"];
+
+            string[] info = [document["id"], project, document_type, document["status"], versions[0]["version"], document["author"], document["size"] + " байт", document["date"], tags];
+
+            LoadDocumentInfo(info);
+            LoadVersions(versions);
+        }
+
+        private void OpenVersion_Click(object sender, RoutedEventArgs e)
+        {
+            ListBoxItem? item = sender as ListBoxItem;
+            if (item != null)
+            {
+                string? version_id = item.Tag as string;
+
+                if (version_id != null)
+                {
+                    this.Cursor = Cursors.Wait;
+                    WordFile wordFile = new WordFile("templates/Empty.docx", version_id);
+
+                    SDMM.Document document = new SDMM.Document(wordFile, version_id);
+                    this.Cursor = Cursors.Arrow;
+                    document.Show();
+                }
+            }
         }
 
         private void Exit_Click(object sender, RoutedEventArgs e)
@@ -129,7 +149,270 @@ namespace SDMM
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Поиск");
+            this.Cursor = Cursors.Wait;
+            var documents = SQLQuery.FindDocuments(SearchTextBox.Text);
+            Dictionary<string, bool> d = new Dictionary<string, bool>();
+            HashSet<string> set = new HashSet<string>();
+            List<string[]> result = new List<string[]>();
+
+            foreach (var document in documents)
+            {
+                if (!set.Contains(document["id"]))
+                {
+                    string tags = "";
+                    foreach (var tag in SQLQuery.ReadTags(document["id"]))
+                    {
+                        tags += tag["name"] + " ";
+                    }
+                    string version = SQLQuery.GetLastVersion(document["id"])[0]["version"];
+                    string[] info = [document["id"], document["project_name"], document["document_type_name"], document["status"], version, document["author"], document["size"] + " байт", document["date"], tags];
+                    result.Add(info);
+                    set.Add(document["id"]);
+                }
+            }
+            LoadDocuments(result);
+            this.Cursor = Cursors.Arrow;
+        }
+
+        private void createProject_Click(object sender, RoutedEventArgs e)
+        {
+            AddDocumentPack window = new AddDocumentPack();
+            window.ShowDialog();
+            LoadDocumentsList();
+        }
+
+        private void createDocument_Click(object sender, RoutedEventArgs e)
+        {
+            AddDocument window = new AddDocument();
+            window.ShowDialog();
+            LoadDocumentsList();
+        }
+
+        private void MainWindows_Loaded(object sender, RoutedEventArgs e)
+        {
+            LoadDocumentsList();
+        }
+
+        private void LoadDocumentsList()
+        {
+            this.Cursor = Cursors.Wait;
+            List<string[]> result = new List<string[]>();
+
+            List<Dictionary<string, string>> projects = SQLQuery.ReadProjects();
+
+            foreach (var project in projects)
+            {
+                List<Dictionary<string, string>> documents = SQLQuery.ReadDocuments(project["id"]);
+
+                foreach (var document in documents)
+                {
+                    var document_types = SQLQuery.GetDocumentTypeInfo(document["type_id"]);
+                    string document_type = document_types[0]["name"];
+                    string version = SQLQuery.GetLastVersion(document["id"])[0]["version"];
+                    string tags = "";
+                    foreach (var tag in SQLQuery.ReadTags(document["id"]))
+                    {
+                        tags += tag["name"] + " ";
+                    }
+
+                    string[] info = [document["id"], project["name"], document_type, document["status"], version, document["author"], document["size"] + " Bytes", document["date"], tags];
+                    result.Add(info);
+                }
+            }
+
+            LoadDocuments(result);
+            this.Cursor = Cursors.Arrow;
+        }
+
+        private void SaveNewVersionButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (chosen_document_id != null)
+            {
+                SaveNewVersion window = new SaveNewVersion(chosen_document_id);
+                window.ShowDialog();
+
+                LoadDocumentInfo(chosen_document_id);
+            }
+        }
+
+        private ContextMenu GetVersionContextMenu(string id)
+        {
+            ContextMenu menu = new ContextMenu() ;
+            MenuItem item;
+
+            item = new MenuItem() { Tag = id };
+            item.Click += DownloadVersion;
+            item.Header = "Скачать";
+            menu.Items.Add(item);
+
+            item = new MenuItem() { Tag = id };
+            item.Click += EditVersion;
+            item.Header = "Редактировать";
+            menu.Items.Add(item);
+
+            item = new MenuItem() { Tag = id };
+            item.Click += DeleteVersion;
+            item.Header = "Удалить";
+            menu.Items.Add(item);
+
+            return menu;
+        }
+        
+        private ContextMenu GetDocumentContextMenu(string id)
+        {
+            ContextMenu menu = new ContextMenu() ;
+            MenuItem item;
+
+            item = new MenuItem() { Tag = id };
+            item.Click += DownloadDocument;
+            item.Header = "Скачать";
+            menu.Items.Add(item);
+
+            item = new MenuItem() { Tag = id };
+            item.Click += EditDocument;
+            item.Header = "Редактировать";
+            menu.Items.Add(item);
+
+            item = new MenuItem() { Tag = id };
+            item.Click += DeleteDocument;
+            item.Header = "Удалить";
+            menu.Items.Add(item);
+
+            return menu;
+        }
+
+        private void DownloadDocument(object sender, RoutedEventArgs e)
+        {
+            MenuItem? item = sender as MenuItem;
+
+            if (item != null)
+            {
+                string? document_id = item.Tag.ToString();
+
+                if (document_id != null)
+                {
+                    var versions = SQLQuery.GetLastVersion(document_id);
+
+                    var names = SQLQuery.GetDocumentName(document_id);
+
+                    VersionDownloading window = new VersionDownloading(versions[0]["id"], names[0]["project_name"] + names[0]["document_type_name"]);
+                    window.ShowDialog();
+                }
+            }
+        }
+
+        private void EditDocument(object sender, RoutedEventArgs e)
+        {
+
+            MenuItem? item = sender as MenuItem;
+
+            if (item != null)
+            {
+                string? document_id = item.Tag.ToString();
+
+                if (document_id != null)
+                {
+                    var documents = SQLQuery.GetDocument(document_id);
+                    var document_types = SQLQuery.GetDocumentTypeInfo(documents[0]["type_id"]);
+                    var projects = SQLQuery.GetProject(documents[0]["project_id"]);
+
+                    DataBaseEntities.Document doc = new DataBaseEntities.Document(document_id,
+                        new DataBaseEntities.Project(projects[0]["id"], projects[0]["name"]),
+                        new DataBaseEntities.DocumentType(document_types[0]["id"], document_types[0]["name"], document_types[0]["standart_id"], document_types[0]["template_id"], document_types[0]["description"]),
+                        documents[0]["author"], documents[0]["date"], documents[0]["status"], documents[0]["size"]);
+
+                    EditDocument window = new EditDocument(doc);
+
+                    window.ShowDialog();
+                    LoadDocumentsList();
+                }
+            }
+        }
+
+        private void DeleteDocument(object sender, RoutedEventArgs e)
+        {
+            var res = MessageBox.Show("Вы точно хотите удалить документ, со всем содержимым?", "Удаление", MessageBoxButton.YesNo);
+
+            if (res == MessageBoxResult.Yes)
+            {
+                MenuItem? item = sender as MenuItem;
+
+                if(item != null)
+                {
+                    string? document_id = item.Tag.ToString();
+
+                    if (document_id != null)
+                    {
+                        SQLQuery.DeleteDocument(document_id);
+                    }
+                }
+            }
+            LoadDocumentsList();
+        }
+
+        private void DownloadVersion(object sender, RoutedEventArgs e)
+        {
+            MenuItem? item = sender as MenuItem;
+
+            if (item != null)
+            {
+                string? version_id = item.Tag.ToString();
+
+                if (version_id != null)
+                {
+                    var versions = SQLQuery.GetVersion(version_id);
+
+                    var names = SQLQuery.GetDocumentName(versions[0]["document_id"]);
+
+                    VersionDownloading window = new VersionDownloading(versions[0]["id"], names[0]["project_name"] + names[0]["document_type_name"]);
+                    window.ShowDialog();
+                }
+            }
+        }
+
+        private void EditVersion(object sender, RoutedEventArgs e)
+        {
+            MenuItem? item = sender as MenuItem;
+
+            if (item != null)
+            {
+                string? version_id = item.Tag.ToString();
+
+                if (version_id != null)
+                {
+                    EditVersion window = new EditVersion(version_id);
+                    window.ShowDialog();
+                    LoadDocumentInfo(chosen_document_id);
+                }
+            }
+        }
+
+        private void DeleteVersion(object sender, RoutedEventArgs e)
+        {
+            var res = MessageBox.Show("Вы точно хотите удалить версию документа, со всем содержимым?", "Удаление", MessageBoxButton.YesNo);
+
+            if (res == MessageBoxResult.Yes)
+            {
+                MenuItem? item = sender as MenuItem;
+
+                if(item != null)
+                {
+                    string? version_id = item.Tag.ToString();
+
+                    if (version_id != null)
+                    {
+                        SQLQuery.DeleteVersion(version_id);
+
+                        LoadDocumentInfo(chosen_document_id);
+                    }
+                }
+            }
+
+        }
+
+        static public bool IsValidInput(string input)
+        {
+            return Regex.IsMatch(input, @"^[a-zA-Z0-9]+$");
         }
     }
 }
