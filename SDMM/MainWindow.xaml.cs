@@ -86,7 +86,6 @@ namespace SDMM
 
         private void Document_Click(object sender, RoutedEventArgs e)
         {
-            this.Cursor = Cursors.Wait;
             ListBoxItem? item = sender as ListBoxItem;
             if (item != null)
             {
@@ -96,35 +95,35 @@ namespace SDMM
                     LoadDocumentInfo(document_id);
                 }
             }
-            this.Cursor = Cursors.Arrow;
         }
 
         private async void LoadDocumentInfo(string document_id)
         {
-            var getDocumentTask = SQLQuery.GetDocument(document_id);
-            await getDocumentTask;
-            var document = getDocumentTask.Result[0];
+            using(new WaitCursorScope())
+            {
+                this.IsEnabled = false;
+                var getDocumentTask = SQLQuery.GetDocument(document_id);
+                await getDocumentTask;
+                var document = getDocumentTask.Result[0];
 
-            var readVersonsTask = SQLQuery.ReadVersions(document["id"]);
-            var getDocumentTypeInfoTask = SQLQuery.GetDocumentTypeInfo(document["type_id"]);
-            var getProjectTask = SQLQuery.GetProject(document["project_id"]);
-            var readTagsTask = SQLQuery.ReadTags(document["id"]);
-            await readTagsTask;
-            await getDocumentTask;
-            await getProjectTask;
-            await readTagsTask;
+                var readVersionsTask = SQLQuery.ReadVersions(document["id"]);
+                var getDocumentTypeInfoTask = SQLQuery.GetDocumentTypeInfo(document["type_id"]);
+                var getProjectTask = SQLQuery.GetProject(document["project_id"]);
+                var readTagsTask = SQLQuery.ReadTags(document["id"]);
 
-            var versions = readVersonsTask.Result;
-            string document_type = getDocumentTypeInfoTask.Result[0]["name"];
-            string project = getProjectTask.Result[0]["name"];
-            string tags = "";
-            foreach (var tag in readTagsTask.Result)
-                tags += tag["name"] + " ";
+                await Task.WhenAll(readVersionsTask, getDocumentTypeInfoTask, getProjectTask, readTagsTask);
 
-            string[] info = [document["id"], project, document_type, document["status"], versions[0]["version"], document["author"], document["size"] + " байт", document["date"], tags];
+                var versions = readVersionsTask.Result;
+                string document_type = getDocumentTypeInfoTask.Result[0]["name"];
+                string project = getProjectTask.Result[0]["name"];
+                string tags = string.Join(" ", readTagsTask.Result.Select(tag => tag["name"]));
 
-            LoadDocumentInfo(info);
-            LoadVersions(versions);
+                string[] info = [document["id"], project, document_type, document["status"], versions[0]["version"], document["author"], document["size"] + " байт", document["date"], tags];
+
+                LoadDocumentInfo(info);
+                LoadVersions(versions);
+                this.IsEnabled = true;
+            }
         }
 
         private void OpenVersion_Click(object sender, RoutedEventArgs e)
@@ -136,12 +135,13 @@ namespace SDMM
 
                 if (version_id != null)
                 {
-                    this.Cursor = Cursors.Wait;
-                    WordFile wordFile = new WordFile("templates/Empty.docx", version_id);
-
-                    SDMM.Document document = new SDMM.Document(wordFile, version_id);
-                    this.Cursor = Cursors.Arrow;
-                    document.Show();
+                    SDMM.Document document; 
+                    using(new WaitCursorScope())
+                    {
+                        WordFile wordFile = new WordFile("templates/Empty.docx", version_id);
+                        document = new SDMM.Document(wordFile, version_id);
+                    }
+                    document.ShowDialog();
                 }
             }
         }
@@ -158,35 +158,36 @@ namespace SDMM
 
         private async void Button_Click(object sender, RoutedEventArgs e)
         {
-            this.Cursor = Cursors.Wait;
-
-            var documents = await SQLQuery.FindDocuments(SearchTextBox.Text);
-            Dictionary<string, bool> d = new Dictionary<string, bool>();
-            HashSet<string> set = new HashSet<string>();
-            List<string[]> result = new List<string[]>();
-
-            foreach (var document in documents)
+            using (new WaitCursorScope())
             {
-                if (!set.Contains(document["id"]))
+
+                var documents = await SQLQuery.FindDocuments(SearchTextBox.Text);
+                Dictionary<string, bool> d = new Dictionary<string, bool>();
+                HashSet<string> set = new HashSet<string>();
+                List<string[]> result = new List<string[]>();
+
+                foreach (var document in documents)
                 {
-                    var getLastVersionTask = SQLQuery.GetLastVersion(document["id"]);
-                    var readTagsTask = SQLQuery.ReadTags(document["id"]);
-                    await getLastVersionTask;
-                    await readTagsTask;
+                    if (!set.Contains(document["id"]))
+                    {
+                        var getLastVersionTask = SQLQuery.GetLastVersion(document["id"]);
+                        var readTagsTask = SQLQuery.ReadTags(document["id"]);
+                        await getLastVersionTask;
+                        await readTagsTask;
 
-                    string version = getLastVersionTask.Result[0]["version"];
-                    string tags = "";
-                    foreach (var tag in readTagsTask.Result)
-                        tags += tag["name"] + " ";
+                        string version = getLastVersionTask.Result[0]["version"];
+                        string tags = "";
+                        foreach (var tag in readTagsTask.Result)
+                            tags += tag["name"] + " ";
 
-                    string[] info = [document["id"], document["project_name"], document["document_type_name"], document["status"], version, document["author"], document["size"] + " байт", document["date"], tags];
-                    result.Add(info);
-                    set.Add(document["id"]);
+                        string[] info = [document["id"], document["project_name"], document["document_type_name"], document["status"], version, document["author"], document["size"] + " байт", document["date"], tags];
+                        result.Add(info);
+                        set.Add(document["id"]);
+                    }
                 }
-            }
 
-            LoadDocuments(result);
-            this.Cursor = Cursors.Arrow;
+                LoadDocuments(result);
+            }
         }
 
         private async void createProject_Click(object sender, RoutedEventArgs e)
@@ -218,38 +219,41 @@ namespace SDMM
 
         private async Task LoadDocumentsList()
         {
-            this.Cursor = Cursors.Wait;
-            List<string[]> result = new List<string[]>();
-
-            List<Dictionary<string, string>> projects = await SQLQuery.ReadProjects();
-
-            foreach (var project in projects)
+            using (new WaitCursorScope())
             {
-                List<Dictionary<string, string>> documents = await SQLQuery.ReadDocuments(project["id"]);
+                this.IsEnabled = false;
+                List<string[]> result = new List<string[]>();
 
-                foreach (var document in documents)
+                List<Dictionary<string, string>> projects = await SQLQuery.ReadProjects();
+
+                foreach (var project in projects)
                 {
-                    var getDocumenTypeInfoTask = SQLQuery.GetDocumentTypeInfo(document["type_id"]);
-                    var getLastVersionTask = SQLQuery.GetLastVersion(document["id"]);
-                    var readTagsTask = SQLQuery.ReadTags(document["id"]);
-                    await getDocumenTypeInfoTask;
-                    await getLastVersionTask;
-                    await readTagsTask;
+                    List<Dictionary<string, string>> documents = await SQLQuery.ReadDocuments(project["id"]);
 
-                    string document_type = getDocumenTypeInfoTask.Result[0]["name"];
-                    string version = getLastVersionTask.Result[0]["version"];
-                    string tags = "";
-                    foreach (var tag in readTagsTask.Result)
-                        tags += tag["name"] + " ";
-                    
-                    string[] info = [document["id"], project["name"], document_type, document["status"], version, document["author"], document["size"] + " Bytes", document["date"], tags];
-                    result.Add(info);
+                    foreach (var document in documents)
+                    {
+                        var getDocumenTypeInfoTask = SQLQuery.GetDocumentTypeInfo(document["type_id"]);
+                        var getLastVersionTask = SQLQuery.GetLastVersion(document["id"]);
+                        var readTagsTask = SQLQuery.ReadTags(document["id"]);
+                        await getDocumenTypeInfoTask;
+                        await getLastVersionTask;
+                        await readTagsTask;
+
+                        string document_type = getDocumenTypeInfoTask.Result[0]["name"];
+                        string version = getLastVersionTask.Result[0]["version"];
+                        string tags = "";
+                        foreach (var tag in readTagsTask.Result)
+                            tags += tag["name"] + " ";
+
+                        string[] info = [document["id"], project["name"], document_type, document["status"], version, document["author"], document["size"] + " Bytes", document["date"], tags];
+                        result.Add(info);
+                    }
+                    this.IsEnabled = true;
                 }
+
+
+                LoadDocuments(result);
             }
-
-
-            LoadDocuments(result);
-            this.Cursor = Cursors.Arrow;
         }
 
         private void SaveNewVersionButton_Click(object sender, RoutedEventArgs e)
@@ -319,16 +323,19 @@ namespace SDMM
 
                 if (document_id != null)
                 {
-                    var getDocumentNameTask = SQLQuery.GetDocumentName(document_id);
-                    var getLastVersionTask = SQLQuery.GetLastVersion(document_id);
-                    await getDocumentNameTask;
-                    await getLastVersionTask;
+                    VersionDownloading window;
+                    using (new WaitCursorScope())
+                    {
+                        var getDocumentNameTask = SQLQuery.GetDocumentName(document_id);
+                        var getLastVersionTask = SQLQuery.GetLastVersion(document_id);
+                        await getDocumentNameTask;
+                        await getLastVersionTask;
 
 
-                    var names = getDocumentNameTask.Result;
-                    var versions = getLastVersionTask.Result;
-                    VersionDownloading window = new VersionDownloading(versions[0]["id"], names[0]["project_name"] + names[0]["document_type_name"]);
-
+                        var names = getDocumentNameTask.Result;
+                        var versions = getLastVersionTask.Result;
+                        window = new VersionDownloading(versions[0]["id"], names[0]["project_name"] + names[0]["document_type_name"]);
+                    }
                     window.ShowDialog();
                 }
             }
@@ -345,26 +352,28 @@ namespace SDMM
 
                 if (document_id != null)
                 {
+                    EditDocument window;
+                    using (new WaitCursorScope()) {
+                        var getDocumentTask = SQLQuery.GetDocument(document_id);
+                        await getDocumentTask;
+                        var documents = getDocumentTask.Result;
 
-                    var getDocumentTask = SQLQuery.GetDocument(document_id);
-                    await getDocumentTask;
-                    var documents = getDocumentTask.Result;
-
-                    var getDocumentTypeInfoTask = SQLQuery.GetDocumentTypeInfo(documents[0]["type_id"]);
-                    var getProjectTask = SQLQuery.GetProject(documents[0]["project_id"]);
-                    await getDocumentTypeInfoTask;
-                    await getProjectTask;
+                        var getDocumentTypeInfoTask = SQLQuery.GetDocumentTypeInfo(documents[0]["type_id"]);
+                        var getProjectTask = SQLQuery.GetProject(documents[0]["project_id"]);
+                        await getDocumentTypeInfoTask;
+                        await getProjectTask;
 
 
-                    var document_types = getDocumentTypeInfoTask.Result;
-                    var projects = getProjectTask.Result;
+                        var document_types = getDocumentTypeInfoTask.Result;
+                        var projects = getProjectTask.Result;
 
-                    DataBaseEntities.Document doc = new DataBaseEntities.Document(document_id,
+                        DataBaseEntities.Document doc = new DataBaseEntities.Document(document_id,
                         new DataBaseEntities.Project(projects[0]["id"], projects[0]["name"]),
                         new DataBaseEntities.DocumentType(document_types[0]["id"], document_types[0]["name"], document_types[0]["standart_id"], document_types[0]["template_id"], document_types[0]["description"]),
                         documents[0]["author"], documents[0]["date"], documents[0]["status"], documents[0]["size"]);
 
-                    EditDocument window = new EditDocument(doc);
+                        window = new EditDocument(doc);
+                    }
 
                     window.ShowDialog();
                     await LoadDocumentsList();
@@ -386,11 +395,14 @@ namespace SDMM
 
                     if (document_id != null)
                     {
-                        await SQLQuery.DeleteDocument(document_id);
+                        using(new WaitCursorScope())
+                        {
+                            await SQLQuery.DeleteDocument(document_id);
+                        }
+                        await LoadDocumentsList();
                     }
                 }
             }
-            await LoadDocumentsList();
         }
 
         private async void DownloadVersion(object sender, RoutedEventArgs e)
@@ -403,16 +415,21 @@ namespace SDMM
 
                 if (version_id != null)
                 {
-                    var getLastVersionTask = SQLQuery.GetVersion(version_id);
-                    await getLastVersionTask;
-                    var versions = getLastVersionTask.Result;
+                    VersionDownloading window;
+
+                    using (new WaitCursorScope())
+                    {
+                        var getLastVersionTask = SQLQuery.GetVersion(version_id);
+                        await getLastVersionTask;
+                        var versions = getLastVersionTask.Result;
 
 
-                    var getDocumentNameTask = SQLQuery.GetDocumentName(versions[0]["document_id"]);
-                    await getDocumentNameTask;
-                    var names = getDocumentNameTask.Result;
+                        var getDocumentNameTask = SQLQuery.GetDocumentName(versions[0]["document_id"]);
+                        await getDocumentNameTask;
+                        var names = getDocumentNameTask.Result;
 
-                    VersionDownloading window = new VersionDownloading(versions[0]["id"], names[0]["project_name"] + names[0]["document_type_name"]);
+                        window = new VersionDownloading(versions[0]["id"], names[0]["project_name"] + names[0]["document_type_name"]);
+                    }
                     window.ShowDialog();
                 }
             }
@@ -428,7 +445,8 @@ namespace SDMM
 
                 if (version_id != null)
                 {
-                    EditVersion window = new EditVersion(version_id);
+                    EditVersion window;
+                    using (new WaitCursorScope()) { window = new EditVersion(version_id); }
                     window.ShowDialog();
                     LoadDocumentInfo(chosen_document_id);
                 }
@@ -449,8 +467,10 @@ namespace SDMM
 
                     if (version_id != null)
                     {
-                        await SQLQuery.DeleteVersion(version_id);
-
+                        using (new WaitCursorScope())
+                        {
+                            await SQLQuery.DeleteVersion(version_id);
+                        }
                         LoadDocumentInfo(chosen_document_id);
                     }
                 }
@@ -460,7 +480,7 @@ namespace SDMM
 
         static public bool IsValidInput(string input)
         {
-            return Regex.IsMatch(input, @"^[a-zA-Z0-9]+$");
+            return Regex.IsMatch(input, @"^[a-zA-ZА-Яа-я0-9 ]+$");
         }
     }
 }

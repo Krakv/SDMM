@@ -6,6 +6,7 @@ using System.Windows.Input;
 using DocumentFormat.OpenXml.Vml.Spreadsheet;
 using DocumentFormat.OpenXml;
 using System.Text;
+using System.Windows.Threading;
 using NPOI.XWPF.UserModel;
 using System.Windows.Media;
 using DocumentFormat.OpenXml.Office2016.Excel;
@@ -28,139 +29,148 @@ namespace SDMM
             InitializeComponent();
             this.wordFile = wordFile;
             this.version_id = version_id;
-            LoadDocument(MainDoc, wordFile);
         }
 
-        public async void LoadDocument(RichTextBox rtf, WordFile wordFile, bool isMainDoc = true)
+        public async void InitializeDocument(RichTextBox rtf, WordFile wordFile, bool isMainDoc = true)
         {
-            List<ParagraphEntity> paragraphs = wordFile.ReadText();
+            await LoadDocument(rtf, wordFile, isMainDoc);
+        }
 
-            FlowDocument doc = new FlowDocument();
-
-            bool isFirst = true;
-
-            foreach (var item in paragraphs)
+        public async Task LoadDocument(RichTextBox rtf, WordFile wordFile, bool isMainDoc = true)
+        {
+            using (WaitCursorScope cursor = new WaitCursorScope())
             {
-                string name = item.name;
-                OpenXmlElement element = item.element;
-                string id = item.id;
+                this.IsEnabled = false;
+                List<ParagraphEntity> paragraphs = wordFile.ReadText();
 
-                if (isMainDoc && isFirst)
+                FlowDocument doc = new FlowDocument();
+
+                bool isFirst = true;
+
+                foreach (var item in paragraphs)
                 {
-                    headings.Items.Clear();
-                    string version_section_id = await SQLQuery.FindVersionNSectionConnection(version_id, wordFile.sections[id]);
-                    ContextMenu mn = GetContextMenu(version_section_id);
-                    var listBoxItem = new ListBoxItem() { Tag = id, Content = "Без заголовка", ContextMenu = mn };
-                    listBoxItem.MouseDoubleClick += on_Double_Click_Section;
-                    headings.Items.Add(listBoxItem);
-                    isFirst = false;
-                }
+                    string name = item.name;
+                    OpenXmlElement element = item.element;
+                    string id = item.id;
 
-                {
-                    if (element is DocumentFormat.OpenXml.Wordprocessing.Paragraph para)
+                    if (isMainDoc && isFirst)
                     {
-
-                        var paragraph = (DocumentFormat.OpenXml.Wordprocessing.Paragraph)element;
-
-                        Paragraph wpfParagraph = new Paragraph() { Tag = id };
-
-                        wpfParagraph.Margin = new Thickness(0, 5, 0, 5);
-
-                        if (name.StartsWith("heading"))
-                        {
-                            wpfParagraph.TextAlignment = System.Windows.TextAlignment.Center;
-                            wpfParagraph.FontWeight = FontWeights.Bold;
-                        }
-
-                        foreach (var text in paragraph.Elements<DocumentFormat.OpenXml.Wordprocessing.Run>())
-                        {
-                            wpfParagraph.Inlines.Add(new Run(text.InnerText));
-                        }
-
-                        if (paragraph.ParagraphProperties != null && paragraph.ParagraphProperties.NumberingProperties != null)
-                        {
-                            List wpfList = new List();
-
-                            System.Windows.Documents.ListItem listItem = new System.Windows.Documents.ListItem(new Paragraph(new Run(paragraph.InnerText)));
-                            wpfList.ListItems.Add(listItem);
-
-                            doc.Blocks.Add(wpfList);
-                        }
-                        else
-                        {
-                            doc.Blocks.Add(wpfParagraph);
-                        }
-
-                    }
-
-                    if (element is DocumentFormat.OpenXml.Wordprocessing.Table tbl)
-                    {
-                        DocumentFormat.OpenXml.Wordprocessing.Table openXmlTable = (DocumentFormat.OpenXml.Wordprocessing.Table)element;
-
-                        System.Windows.Documents.Table wpfTable = new System.Windows.Documents.Table();
-
-
-                        TableRowGroup rowGroup = new TableRowGroup();
-                        wpfTable.RowGroups.Add(rowGroup);
-
-                        foreach (var row in openXmlTable.Elements<DocumentFormat.OpenXml.Wordprocessing.TableRow>())
-                        {
-                            TableRow wpfRow = new TableRow();
-
-                            foreach (var cell in row.Elements<DocumentFormat.OpenXml.Wordprocessing.TableCell>())
-                            {
-                                TableCell wpfCell = new TableCell();
-                                wpfCell.BorderBrush = Brushes.Black;
-                                wpfCell.BorderThickness = new Thickness(1);
-
-                                wpfCell.Padding = new Thickness(5);
-
-                                foreach (var paragraph in cell.Elements<DocumentFormat.OpenXml.Wordprocessing.Paragraph>())
-                                {
-                                    Paragraph wpfParagraph = new Paragraph();
-
-                                    wpfParagraph.Margin = new Thickness(0, 5, 0, 5);
-
-                                    foreach (var text in paragraph.Elements<DocumentFormat.OpenXml.Wordprocessing.Run>())
-                                    {
-                                        wpfParagraph.Inlines.Add(new Run(text.InnerText));
-                                    }
-
-                                    if (paragraph.ParagraphProperties != null && paragraph.ParagraphProperties.NumberingProperties != null)
-                                    {
-                                        List wpfList = new List();
-
-                                        System.Windows.Documents.ListItem listItem = new System.Windows.Documents.ListItem(new Paragraph(new Run(paragraph.InnerText)));
-                                        wpfList.ListItems.Add(listItem);
-
-                                        wpfCell.Blocks.Add(wpfList);
-                                    }
-                                    else
-                                    {
-                                        wpfCell.Blocks.Add(wpfParagraph);
-                                    }
-                                }
-
-                                wpfRow.Cells.Add(wpfCell);
-                            }
-
-                            rowGroup.Rows.Add(wpfRow);
-                        }
-
-                        doc.Blocks.Add(wpfTable);
-                    }
-
-                    if (isMainDoc && name.StartsWith("heading"))
-                    {
+                        headings.Items.Clear();
                         string version_section_id = await SQLQuery.FindVersionNSectionConnection(version_id, wordFile.sections[id]);
                         ContextMenu mn = GetContextMenu(version_section_id);
-                        var listBoxItem = new ListBoxItem() { Tag = id, Content = element.InnerText, ContextMenu = mn };
+                        var listBoxItem = new ListBoxItem() { Tag = id, Content = "Без заголовка", ContextMenu = mn };
                         listBoxItem.MouseDoubleClick += on_Double_Click_Section;
                         headings.Items.Add(listBoxItem);
+                        isFirst = false;
                     }
+
+                    {
+                        if (element is DocumentFormat.OpenXml.Wordprocessing.Paragraph para)
+                        {
+
+                            var paragraph = (DocumentFormat.OpenXml.Wordprocessing.Paragraph)element;
+
+                            Paragraph wpfParagraph = new Paragraph() { Tag = id };
+
+                            wpfParagraph.Margin = new Thickness(0, 5, 0, 5);
+
+                            if (name.StartsWith("heading"))
+                            {
+                                wpfParagraph.TextAlignment = System.Windows.TextAlignment.Center;
+                                wpfParagraph.FontWeight = FontWeights.Bold;
+                            }
+
+                            foreach (var text in paragraph.Elements<DocumentFormat.OpenXml.Wordprocessing.Run>())
+                            {
+                                wpfParagraph.Inlines.Add(new Run(text.InnerText));
+                            }
+
+                            if (paragraph.ParagraphProperties != null && paragraph.ParagraphProperties.NumberingProperties != null)
+                            {
+                                List wpfList = new List();
+
+                                System.Windows.Documents.ListItem listItem = new System.Windows.Documents.ListItem(new Paragraph(new Run(paragraph.InnerText)));
+                                wpfList.ListItems.Add(listItem);
+
+                                doc.Blocks.Add(wpfList);
+                            }
+                            else
+                            {
+                                doc.Blocks.Add(wpfParagraph);
+                            }
+
+                        }
+
+                        if (element is DocumentFormat.OpenXml.Wordprocessing.Table tbl)
+                        {
+                            DocumentFormat.OpenXml.Wordprocessing.Table openXmlTable = (DocumentFormat.OpenXml.Wordprocessing.Table)element;
+
+                            System.Windows.Documents.Table wpfTable = new System.Windows.Documents.Table();
+
+
+                            TableRowGroup rowGroup = new TableRowGroup();
+                            wpfTable.RowGroups.Add(rowGroup);
+
+                            foreach (var row in openXmlTable.Elements<DocumentFormat.OpenXml.Wordprocessing.TableRow>())
+                            {
+                                TableRow wpfRow = new TableRow();
+
+                                foreach (var cell in row.Elements<DocumentFormat.OpenXml.Wordprocessing.TableCell>())
+                                {
+                                    TableCell wpfCell = new TableCell();
+                                    wpfCell.BorderBrush = Brushes.Black;
+                                    wpfCell.BorderThickness = new Thickness(1);
+
+                                    wpfCell.Padding = new Thickness(5);
+
+                                    foreach (var paragraph in cell.Elements<DocumentFormat.OpenXml.Wordprocessing.Paragraph>())
+                                    {
+                                        Paragraph wpfParagraph = new Paragraph();
+
+                                        wpfParagraph.Margin = new Thickness(0, 5, 0, 5);
+
+                                        foreach (var text in paragraph.Elements<DocumentFormat.OpenXml.Wordprocessing.Run>())
+                                        {
+                                            wpfParagraph.Inlines.Add(new Run(text.InnerText));
+                                        }
+
+                                        if (paragraph.ParagraphProperties != null && paragraph.ParagraphProperties.NumberingProperties != null)
+                                        {
+                                            List wpfList = new List();
+
+                                            System.Windows.Documents.ListItem listItem = new System.Windows.Documents.ListItem(new Paragraph(new Run(paragraph.InnerText)));
+                                            wpfList.ListItems.Add(listItem);
+
+                                            wpfCell.Blocks.Add(wpfList);
+                                        }
+                                        else
+                                        {
+                                            wpfCell.Blocks.Add(wpfParagraph);
+                                        }
+                                    }
+
+                                    wpfRow.Cells.Add(wpfCell);
+                                }
+
+                                rowGroup.Rows.Add(wpfRow);
+                            }
+
+                            doc.Blocks.Add(wpfTable);
+                        }
+
+                        if (isMainDoc && name.StartsWith("heading"))
+                        {
+                            string version_section_id = await SQLQuery.FindVersionNSectionConnection(version_id, wordFile.sections[id]);
+                            ContextMenu mn = GetContextMenu(version_section_id);
+                            var listBoxItem = new ListBoxItem() { Tag = id, Content = element.InnerText, ContextMenu = mn };
+                            listBoxItem.MouseDoubleClick += on_Double_Click_Section;
+                            headings.Items.Add(listBoxItem);
+                        }
+                    }
+                    rtf.Document = doc;
                 }
+                this.IsEnabled = true;
             }
-            rtf.Document = doc;
         }
 
         public ContextMenu GetContextMenu(string version_section_id)
@@ -211,26 +221,27 @@ namespace SDMM
                     window.ShowDialog();
                     if (window.DialogResult.Value)
                     {
-                        this.Cursor = Cursors.Wait;
-                        var sections = await SQLQuery.ReadSections(version_id);
-
-                        string name = $"<w:p xmlns:w14=\"http://schemas.microsoft.com/office/word/2010/wordml\" xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:pPr><w:pStyle w:val=\"{window.ComboBox.Text}\" /></w:pPr><w:r></w:r><w:r ><w:t>{window.TextBox.Text}</w:t></w:r></w:p>";
-
-                        var section_id = await SQLQuery.AddSection(name, $"<w:pStyle w:val=\"{window.ComboBox.Text}\" />", "");
-                        var versions_sections = await SQLQuery.GetVersionNSectionConnection(version_section_id);
-                        foreach (var section in sections)
+                        using (new WaitCursorScope())
                         {
-                            await SQLQuery.DeleteVersionNSectionConnection(version_id, section["id"]);
-                            await SQLQuery.ConnectVersionNSection(version_id, section["id"]);
-                            if (versions_sections[0]["section_id"] == section["id"])
-                            {
-                                await SQLQuery.ConnectVersionNSection(version_id, section_id);
-                            }
-                        }
+                            var sections = await SQLQuery.ReadSections(version_id);
 
-                        wordFile = new WordFile(version_id: version_id);
-                        LoadDocument(MainDoc, wordFile);
-                        this.Cursor = Cursors.Arrow;
+                            string name = $"<w:p xmlns:w14=\"http://schemas.microsoft.com/office/word/2010/wordml\" xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:pPr><w:pStyle w:val=\"{window.ComboBox.Text}\" /></w:pPr><w:r></w:r><w:r ><w:t>{window.TextBox.Text}</w:t></w:r></w:p>";
+
+                            var section_id = await SQLQuery.AddSection(name, $"<w:pStyle w:val=\"{window.ComboBox.Text}\" />", "");
+                            var versions_sections = await SQLQuery.GetVersionNSectionConnection(version_section_id);
+                            foreach (var section in sections)
+                            {
+                                await SQLQuery.DeleteVersionNSectionConnection(version_id, section["id"]);
+                                await SQLQuery.ConnectVersionNSection(version_id, section["id"]);
+                                if (versions_sections[0]["section_id"] == section["id"])
+                                {
+                                    await SQLQuery.ConnectVersionNSection(version_id, section_id);
+                                }
+                            }
+
+                            wordFile = new WordFile(version_id: version_id);
+                            await LoadDocument(MainDoc, wordFile);
+                        }
                     }
                 }
             }
@@ -245,13 +256,13 @@ namespace SDMM
                 string? version_section_id = item.Tag.ToString();
                 if (version_section_id != null && version_section_id != "")
                 {
-
-                    this.Cursor = Cursors.Wait;
-                    var con = await SQLQuery.GetVersionNSectionConnection(version_section_id);
-                    await SQLQuery.UpdateVersionNSection(version_section_id, con[0]["version_id"], "0");
-                    wordFile = new WordFile(version_id: con[0]["version_id"]);
-                    LoadDocument(MainDoc, wordFile);
-                    this.Cursor = Cursors.Arrow;
+                    using (new WaitCursorScope())
+                    {
+                        var con = await SQLQuery.GetVersionNSectionConnection(version_section_id);
+                        await SQLQuery.UpdateVersionNSection(version_section_id, con[0]["version_id"], "0");
+                        wordFile = new WordFile(version_id: con[0]["version_id"]);
+                        await LoadDocument(MainDoc, wordFile);
+                    }
                 }
             }
         }
@@ -276,30 +287,31 @@ namespace SDMM
                     window.ShowDialog();
                     if (window.DialogResult != null && window.DialogResult.Value)
                     {
-                        this.Cursor = Cursors.Wait;
-                        var sections = await SQLQuery.ReadSections(version_id);
-                        var versions_sections = await SQLQuery.GetVersionNSectionConnection(version_section_id);
-                        foreach (var section in sections)
+                        using (new WaitCursorScope())
                         {
-                            await SQLQuery.DeleteVersionNSectionConnection(version_id, section["id"]);
-                            if (versions_sections[0]["section_id"] == section["id"])
+                            var sections = await SQLQuery.ReadSections(version_id);
+                            var versions_sections = await SQLQuery.GetVersionNSectionConnection(version_section_id);
+                            foreach (var section in sections)
                             {
-                                var old_section = await SQLQuery.GetSection(section["id"]);
+                                await SQLQuery.DeleteVersionNSectionConnection(version_id, section["id"]);
+                                if (versions_sections[0]["section_id"] == section["id"])
+                                {
+                                    var old_section = await SQLQuery.GetSection(section["id"]);
 
-                                string name = $"<w:p xmlns:w14=\"http://schemas.microsoft.com/office/word/2010/wordml\" xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:pPr><w:pStyle w:val=\"{window.ComboBox.Text}\" /></w:pPr><w:r></w:r><w:r ><w:t>{window.TextBox.Text}</w:t></w:r></w:p>";
+                                    string name = $"<w:p xmlns:w14=\"http://schemas.microsoft.com/office/word/2010/wordml\" xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:pPr><w:pStyle w:val=\"{window.ComboBox.Text}\" /></w:pPr><w:r></w:r><w:r ><w:t>{window.TextBox.Text}</w:t></w:r></w:p>";
 
-                                var section_id = await SQLQuery.AddSection(name, $"<w:pStyle w:val=\"{window.ComboBox.Text}\" />", old_section[0]["text"]);
-                                await SQLQuery.ConnectVersionNSection(version_id, section_id);
+                                    var section_id = await SQLQuery.AddSection(name, $"<w:pStyle w:val=\"{window.ComboBox.Text}\" />", old_section[0]["text"]);
+                                    await SQLQuery.ConnectVersionNSection(version_id, section_id);
+                                }
+                                else
+                                {
+                                    await SQLQuery.ConnectVersionNSection(version_id, section["id"]);
+                                }
                             }
-                            else
-                            {
-                                await SQLQuery.ConnectVersionNSection(version_id, section["id"]);
-                            }
+
+                            wordFile = new WordFile(version_id: version_id);
+                            await LoadDocument(MainDoc, wordFile);
                         }
-
-                        wordFile = new WordFile(version_id: version_id);
-                        LoadDocument(MainDoc, wordFile);
-                        this.Cursor = Cursors.Arrow;
                     }
                 }
             }
@@ -428,11 +440,9 @@ namespace SDMM
                 
                     if (window.chosenVersion != null)
                     {
-                        this.Cursor = Cursors.Wait;
                         WordFile wordFile = new WordFile("templates/Empty.docx", window.chosenVersion.id);
 
-                        this.Cursor = Cursors.Arrow;
-                        LoadDocument(SecondDoc, wordFile, false);
+                        await LoadDocument(SecondDoc, wordFile, false);
                         SecondDoc.Visibility = Visibility.Visible;
                         compareButton.Content = "Закрыть сравнение";
                         CompareDocuments(SecondDoc.Document, MainDoc.Document);
@@ -620,5 +630,9 @@ namespace SDMM
             }
         }
 
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            InitializeDocument(MainDoc, wordFile);
+        }
     }
 }
