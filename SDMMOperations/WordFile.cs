@@ -14,17 +14,23 @@ namespace SDMMOperations
         public readonly Dictionary<string, string> sections = new Dictionary<string, string>();
 
         public WordFile(string path = "templates/Empty.docx", string version_id = "") {
-            Body body;
+            Body? body = null;
             if (version_id == "")
             {
                 IEnumerable<Style> stylesElements;
-                using (WordprocessingDocument myDocument = WordprocessingDocument.Open(path, true))
+                using (WordprocessingDocument? myDocument = WordprocessingDocument.Open(path, true))
                 {
-                    body = myDocument.MainDocumentPart.Document.Body;
-                    stylesElements = myDocument.MainDocumentPart.StyleDefinitionsPart.Styles.Elements<Style>();
-                }
+                    if (myDocument.MainDocumentPart != null && myDocument.MainDocumentPart.Document.Body != null)
+                    {
+                        body = myDocument.MainDocumentPart.Document.Body!;
 
-                ReadHeadings(stylesElements);
+                        if (myDocument.MainDocumentPart.StyleDefinitionsPart != null && myDocument.MainDocumentPart.StyleDefinitionsPart.Styles != null)
+                        {
+                            stylesElements = myDocument.MainDocumentPart.StyleDefinitionsPart.Styles.Elements<Style>();
+                            ReadHeadings(stylesElements);
+                        }
+                    }
+                }
             }
             else
             {
@@ -33,13 +39,20 @@ namespace SDMMOperations
                 IEnumerable<Style> stylesElements;
                 using (WordprocessingDocument myDocument = WordprocessingDocument.Open(path, true))
                 {
-                    stylesElements = myDocument.MainDocumentPart.StyleDefinitionsPart.Styles.Elements<Style>();
+                    if (myDocument.MainDocumentPart != null)
+                    {
+                        if (myDocument.MainDocumentPart.StyleDefinitionsPart != null && myDocument.MainDocumentPart.StyleDefinitionsPart.Styles != null)
+                        {
+                            stylesElements = myDocument.MainDocumentPart.StyleDefinitionsPart.Styles.Elements<Style>();
+                            ReadHeadings(stylesElements);
+                        }
+                    }
                 }
-
-                ReadHeadings(stylesElements);
             }
 
-            this.body = body;
+            if (body != null) {
+                this.body = body;
+            }
         }
 
 
@@ -102,23 +115,23 @@ namespace SDMMOperations
             return false;
         }
 
-        public void SaveNewDocument(string name, string type_id, string author, string status, string size, List<string> tags)
+        public async void SaveNewDocument(string name, string type_id, string author, string status, string size, List<string> tags)
         {
-            string project_id = SQLQuery.FindProject(name);
+            string project_id = await SQLQuery.FindProject(name);
 
             if (project_id == "")
-                project_id = SQLQuery.AddProject(name);
+                project_id = await SQLQuery.AddProject(name);
 
-            string document_id = SQLQuery.AddDocument(project_id, type_id, author, status, size);
-            string version_id = SQLQuery.AddVersion(document_id, "1.0");
+            string document_id = await SQLQuery.AddDocument(project_id, type_id, author, status, size);
+            string version_id = await SQLQuery.AddVersion(document_id, "1.0");
 
             foreach(var tag in tags)
             {
-                string tag_id = SQLQuery.FindTag(tag);
+                string tag_id = await SQLQuery.FindTag(tag);
                 if (tag_id == "")
-                    tag_id = SQLQuery.AddTag(tag);
+                    tag_id = await SQLQuery.AddTag(tag);
 
-                SQLQuery.ConnectDocumentNTag(document_id, tag_id);
+                await SQLQuery.ConnectDocumentNTag(document_id, tag_id);
             }
 
             SaveSectionsBD(version_id);
@@ -156,14 +169,17 @@ namespace SDMMOperations
                     WordprocessingDocument.Open(destination, true))
                 {
                     MainDocumentPart? mainPart = wordDocument.MainDocumentPart;
-                    mainPart.Document = new Document();
-                    mainPart.Document.Append(body);
-                    mainPart.Document.Save();
+                    if (mainPart != null)
+                    {
+                        mainPart.Document = new Document();
+                        mainPart.Document.Append(body);
+                        mainPart.Document.Save();
+                    }
                 }
             }
         }
 
-        public void SaveSectionsBD(string version_id)
+        public async void SaveSectionsBD(string version_id)
         {
             string text = "";
             string header = "";
@@ -177,8 +193,8 @@ namespace SDMMOperations
                     isHeading = IsHeading(paragraph, out int level);
                     if (isHeading)
                     {
-                        string section_id = SQLQuery.AddSection(header, $"<w:pStyle w:val=\"{headerLevel}\"/>", text);
-                        SQLQuery.ConnectVersionNSection(version_id, section_id);
+                        string section_id = await SQLQuery.AddSection(header, $"<w:pStyle w:val=\"{headerLevel}\"/>", text);
+                        await SQLQuery.ConnectVersionNSection(version_id, section_id);
 
                         header = paragraph.OuterXml;
                         headerLevel = level.ToString();
@@ -191,15 +207,19 @@ namespace SDMMOperations
             }
 
             {
-                string section_id = SQLQuery.AddSection(header, $"<w:pStyle w:val=\"{headerLevel}\"/>", text);
-                SQLQuery.ConnectVersionNSection(version_id, section_id);
+                string section_id = await SQLQuery.AddSection(header, $"<w:pStyle w:val=\"{headerLevel}\"/>", text);
+                await SQLQuery.ConnectVersionNSection(version_id, section_id);
             }
         }
 
         public Body ReadBody(string version_id)
         {
             Body newBody = new Body();
-            var sections = SQLQuery.ReadSections(version_id);
+
+            var sections = Task.Run(async () =>
+            {
+                return await SQLQuery.ReadSections(version_id);
+            }).Result;
 
             XmlDocument doc;
 
@@ -259,7 +279,10 @@ namespace SDMMOperations
         public static Body ReadBodyStatic(string version_id)
         {
             Body newBody = new Body();
-            var sections = SQLQuery.ReadSections(version_id);
+            var sections = Task.Run(async () =>
+            {
+                return await SQLQuery.ReadSections(version_id);
+            }).Result;
 
             XmlDocument doc;
 

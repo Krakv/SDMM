@@ -1,20 +1,20 @@
 ﻿using MySql.Data.MySqlClient;
 using System.Data;
 using Microsoft.Extensions.Configuration;
-using DocumentFormat.OpenXml.Drawing.Spreadsheet;
-using System.Transactions;
-using System.Xml.Linq;
-using System.Timers;
+using System.Net.Sockets;
 
 namespace SDMMOperations
 {
     public class MySQLConnector
     {
         protected string? connectionString;
+        CancellationTokenSource cancellationTokenSource;
         
         public MySQLConnector()
         {
             connectionString = GetConnectionString();
+            cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            
         }
 
         public static string? GetConnectionString()
@@ -31,84 +31,94 @@ namespace SDMMOperations
 
             return builder.Build();
         }
+        
 
-        public string NonQuery(string sql, Dictionary<string, string> parameters)
+        public async Task<string> NonQueryAsync(string sql, Dictionary<string, string> parameters)
         {
+
             string result = "";
             using (MySqlConnection connection = new MySqlConnection(connectionString))
             {
-                MySqlCommand myCommand = new MySqlCommand(sql, connection);
-                foreach(var key in parameters.Keys)
+                using (MySqlCommand myCommand = new MySqlCommand(sql, connection))
                 {
-                    myCommand.Parameters.AddWithValue(key, parameters[key]);
-                }
-
-                try
-                {
-                    connection.Open();
-                    myCommand.ExecuteNonQuery();
-                    result = myCommand.LastInsertedId.ToString();
-                }
-                catch (System.Exception ex)
-                {
-                    Console.WriteLine(ex.ToString());
-                }
-                finally
-                {
-                    if (connection.State == ConnectionState.Open)
+                    foreach (var key in parameters.Keys)
                     {
-                        connection.Close();
+                        myCommand.Parameters.AddWithValue(key, parameters[key]);
+                    }
+
+                    try
+                    {
+                        await connection.OpenAsync();
+                        await myCommand.ExecuteNonQueryAsync();
+                        result = myCommand.LastInsertedId.ToString();
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        throw new TaskCanceledException();
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Console.WriteLine(ex.ToString());
+                    }
+                    finally
+                    {
+                        if (connection.State == ConnectionState.Open)
+                        {
+                            connection.Close();
+                        }
                     }
                 }
             }
             return result;
         }
 
-        public List<Dictionary<string, string>> Query(string sql, Dictionary<string, string> parameters = null)
+        public async Task<List<Dictionary<string, string>>> QueryAsync(string sql, Dictionary<string, string>? parameters = null)
         {
-            List<Dictionary<string, string>> result = new List<Dictionary<string, string>>();
 
+            List<Dictionary<string, string>> result = new List<Dictionary<string, string>>();
             using (MySqlConnection connection = new MySqlConnection(connectionString))
             {
-                MySqlCommand myCommand = new MySqlCommand(sql, connection);
-
-                if (parameters != null)
+                using (MySqlCommand myCommand = new MySqlCommand(sql, connection))
                 {
-                    foreach (var key in parameters.Keys)
+                    if (parameters != null)
                     {
-                        myCommand.Parameters.AddWithValue(key, parameters[key]);
-                    }
-                }
-
-                try
-                {
-                    connection.Open();
-                    myCommand.ExecuteNonQuery();
-
-                    using (var dr = myCommand.ExecuteReader())
-                    {
-                        while (dr.Read())
+                        foreach (var key in parameters.Keys)
                         {
-                            Dictionary<string, string> line = new Dictionary<string, string>();
-                            for (int i = 0; i < dr.FieldCount; i++)
-                            {
-                                Console.Write($"{dr.GetName(i)}: {dr[i]}  ");
-                                line.Add(dr.GetName(i), dr[i].ToString());
-                            }
-                            result.Add(line);
+                            myCommand.Parameters.AddWithValue(key, parameters[key]);
                         }
                     }
-                }
-                catch (System.Exception ex)
-                {
-                    Console.WriteLine(ex.ToString());
-                }
-                finally
-                {
-                    if (connection.State == ConnectionState.Open)
+
+                    try
                     {
-                        connection.Close();
+                        await connection.OpenAsync();
+                        await myCommand.ExecuteNonQueryAsync();
+
+                        using (var dr = myCommand.ExecuteReader())
+                        {
+                            while (dr.Read())
+                            {
+                                Dictionary<string, string> line = new Dictionary<string, string>();
+                                for (int i = 0; i < dr.FieldCount; i++)
+                                {
+                                    Console.Write($"{dr.GetName(i)}: {dr[i]}  ");
+                                    line.Add(dr.GetName(i), dr[i].ToString() ?? "");
+                                }
+                                result.Add(line);
+                            }
+                        }
                     }
+                    catch (System.Exception ex) when (ex is not MySqlException) 
+                    {
+                        Console.WriteLine(ex.ToString());
+                    }
+                    finally
+                    {
+                        if (connection.State == ConnectionState.Open)
+                        {
+                            connection.Close();
+                        }
+                    }
+
                 }
             }
 

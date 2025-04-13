@@ -52,15 +52,15 @@ namespace SDMM
             templateCheckBox.IsChecked = true;
         }
 
-        private void LoadProjectNames()
+        private async void LoadProjectNames()
         {
-            var projects = SQLQuery.ReadProjects();
+            var projects = await SQLQuery.ReadProjects();
 
             foreach(var project in projects)
                 projectNameTextBox.Items.Add(project["name"]);
         }
 
-        public void Save_Button_Click(object sender, RoutedEventArgs e)
+        public async void Save_Button_Click(object sender, RoutedEventArgs e)
         {
             bool isValidName = MainWindow.IsValidInput(projectNameTextBox.Text);
             bool isValidStatus = MainWindow.IsValidInput(statusComboBox.Text);
@@ -80,7 +80,7 @@ namespace SDMM
                         {
                             if (templateCheckBox.IsChecked.Value)
                             {
-                                var templates = SQLQuery.GetTemplate(type.templateID);
+                                var templates = await SQLQuery.GetTemplate(type.templateID);
                                 path.Text = "templates/" + templates[0]["template_ref"];
                             }
                             long length = new System.IO.FileInfo(path.Text).Length;
@@ -135,15 +135,15 @@ namespace SDMM
             LoadStandarts();
         }
 
-        private void LoadStandarts()
+        private async void LoadStandarts()
         {
-            var standarts = SQLQuery.ReadStandarts();
+            var standarts = await SQLQuery.ReadStandarts();
 
             foreach (var standart in standarts)
                 standartComboBox.Items.Add(new DataBaseEntities.Standart(standart["id"], standart["name"]));
         }
 
-        private void StandartComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void StandartComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ComboBox? cb = sender as ComboBox;
             
@@ -155,7 +155,7 @@ namespace SDMM
 
                 if (standart != null)
                 {
-                    var documentTypes = SQLQuery.ReadDocumentTypes(standart.id);
+                    var documentTypes = await SQLQuery.ReadDocumentTypes(standart.id);
                     foreach (var documentType in documentTypes)
                         documentTypeComboBox.Items.Add(new DataBaseEntities.DocumentType(documentType["id"], documentType["name"], documentType["standart_id"], documentType["template_id"], documentType["description"]));
 
@@ -163,7 +163,7 @@ namespace SDMM
                 }
             }
         }
-        private void templateCheckBox_checked(object sender, RoutedEventArgs e)
+        private async void templateCheckBox_checked(object sender, RoutedEventArgs e)
         {
             CheckBox cb = (CheckBox)sender;
             if (cb.IsChecked != null)
@@ -173,7 +173,7 @@ namespace SDMM
                 DataBaseEntities.DocumentType? type = documentTypeComboBox.SelectedValue as DataBaseEntities.DocumentType;
                 if (type != null)
                 {
-                    var templates = SQLQuery.GetTemplate(type.templateID);
+                    var templates = await SQLQuery.GetTemplate(type.templateID);
                     path.Text = "templates/" + templates[0]["template_ref"];
                 }
                 else

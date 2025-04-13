@@ -1,19 +1,6 @@
-﻿using DocumentFormat.OpenXml.Office2010.Word;
-using DocumentFormat.OpenXml.Wordprocessing;
-using SDMMOperations;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using SDMMOperations;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace SDMM
 {
@@ -45,9 +32,9 @@ namespace SDMM
 
         }
 
-        private void FillStandart()
+        private async void FillStandart()
         {
-            var standarts = SQLQuery.ReadStandarts();
+            var standarts = await SQLQuery.ReadStandarts();
             foreach(var standart in standarts)
             {
                 ComboBoxItem item = new ComboBoxItem() { Content = new DataBaseEntities.Standart(standart["id"], standart["name"]) };
@@ -57,9 +44,9 @@ namespace SDMM
             }
         }
 
-        private void FillDocumentType()
+        private async void FillDocumentType()
         {
-            var documentTypes = SQLQuery.ReadDocumentTypes(document.documentType.standartID);
+            var documentTypes = await SQLQuery.ReadDocumentTypes(document.documentType.standartID);
             foreach (var documentType in documentTypes)
             {
                 ComboBoxItem item = new ComboBoxItem() { Content = new DataBaseEntities.DocumentType(documentType["id"], documentType["name"], documentType["standart_id"], documentType["template_id"], documentType["description"]) };
@@ -72,7 +59,10 @@ namespace SDMM
 
         private static string GetTags(string document_id)
         {
-            var tags = SQLQuery.ReadTags(document_id);
+            var tags = Task.Run(async () =>
+            {
+                return await SQLQuery.ReadTags(document_id);
+            }).Result; 
 
             var result = "";
 
@@ -82,7 +72,7 @@ namespace SDMM
             return result;
         }
 
-        private void StandartComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void StandartComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ComboBox? cb = sender as ComboBox;
 
@@ -94,7 +84,7 @@ namespace SDMM
 
                 if (standart != null)
                 {
-                    var documentTypes = SQLQuery.ReadDocumentTypes(standart.id);
+                    var documentTypes = await SQLQuery.ReadDocumentTypes(standart.id);
                     foreach (var documentType in documentTypes)
                         documentTypeComboBox.Items.Add(new DataBaseEntities.DocumentType(documentType["id"], documentType["name"], documentType["standart_id"], documentType["template_id"], documentType["description"]));
 
@@ -108,7 +98,7 @@ namespace SDMM
             this.Close();
         }
 
-        private void Save_Button_Click(object sender, RoutedEventArgs e)
+        private async void Save_Button_Click(object sender, RoutedEventArgs e)
         {
             bool isValidName = MainWindow.IsValidInput(projectNameTextBox.Text);
             bool isValidStatus = MainWindow.IsValidInput(statusComboBox.Text);
@@ -119,13 +109,13 @@ namespace SDMM
             {
                 try
                 {
-                    string project_id = SQLQuery.FindProject(projectNameTextBox.Text);
+                    string project_id = await SQLQuery.FindProject(projectNameTextBox.Text);
                     if (project_id == "")
-                        project_id = SQLQuery.AddProject(projectNameTextBox.Text);
+                        project_id = await SQLQuery.AddProject(projectNameTextBox.Text);
 
                     string document_type_id = ((DataBaseEntities.DocumentType)((ComboBoxItem)documentTypeComboBox.SelectedItem).Content).id;
 
-                    SQLQuery.UpdateDocument(document.id, project_id, document_type_id, authorTextBox.Text, statusComboBox.Text, document.size);
+                    await SQLQuery.UpdateDocument(document.id, project_id, document_type_id, authorTextBox.Text, statusComboBox.Text, document.size);
 
 
                     var tags = tagsTextBox.Text.Trim().Split();
@@ -137,19 +127,19 @@ namespace SDMM
 
                     foreach (var tag in tags_to_add)
                     {
-                        string tag_id = SQLQuery.FindTag(tag);
+                        string tag_id = await SQLQuery.FindTag(tag);
                         if (tag_id == "")
-                            tag_id = SQLQuery.AddTag(tag);
+                            tag_id = await SQLQuery.AddTag(tag);
 
                     
-                        SQLQuery.ConnectDocumentNTag(document.id, tag_id);
+                        await SQLQuery.ConnectDocumentNTag(document.id, tag_id);
                     }
                 
                     foreach (var tag in tags_to_remove)
                     {
-                        string tag_id = SQLQuery.FindTag(tag);
+                        string tag_id = await SQLQuery.FindTag(tag);
                         if (tag_id != "")
-                            SQLQuery.DeleteDocumentNTagConnection(document.id, tag_id);
+                            await SQLQuery.DeleteDocumentNTagConnection(document.id, tag_id);
                     }
 
                     this.Close();

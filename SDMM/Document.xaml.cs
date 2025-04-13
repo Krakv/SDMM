@@ -31,7 +31,7 @@ namespace SDMM
             LoadDocument(MainDoc, wordFile);
         }
 
-        public void LoadDocument(RichTextBox rtf, WordFile wordFile, bool isMainDoc = true)
+        public async void LoadDocument(RichTextBox rtf, WordFile wordFile, bool isMainDoc = true)
         {
             List<ParagraphEntity> paragraphs = wordFile.ReadText();
 
@@ -48,7 +48,7 @@ namespace SDMM
                 if (isMainDoc && isFirst)
                 {
                     headings.Items.Clear();
-                    string version_section_id = SQLQuery.FindVersionNSectionConnection(version_id, wordFile.sections[id]);
+                    string version_section_id = await SQLQuery.FindVersionNSectionConnection(version_id, wordFile.sections[id]);
                     ContextMenu mn = GetContextMenu(version_section_id);
                     var listBoxItem = new ListBoxItem() { Tag = id, Content = "Без заголовка", ContextMenu = mn };
                     listBoxItem.MouseDoubleClick += on_Double_Click_Section;
@@ -152,7 +152,7 @@ namespace SDMM
 
                     if (isMainDoc && name.StartsWith("heading"))
                     {
-                        string version_section_id = SQLQuery.FindVersionNSectionConnection(version_id, wordFile.sections[id]);
+                        string version_section_id = await SQLQuery.FindVersionNSectionConnection(version_id, wordFile.sections[id]);
                         ContextMenu mn = GetContextMenu(version_section_id);
                         var listBoxItem = new ListBoxItem() { Tag = id, Content = element.InnerText, ContextMenu = mn };
                         listBoxItem.MouseDoubleClick += on_Double_Click_Section;
@@ -191,7 +191,7 @@ namespace SDMM
             return mn;
         }
 
-        private void AddSection(object sender, RoutedEventArgs e)
+        private async void AddSection(object sender, RoutedEventArgs e)
         {
             MenuItem? item = sender as MenuItem;
 
@@ -212,19 +212,19 @@ namespace SDMM
                     if (window.DialogResult.Value)
                     {
                         this.Cursor = Cursors.Wait;
-                        var sections = SQLQuery.ReadSections(version_id);
+                        var sections = await SQLQuery.ReadSections(version_id);
 
                         string name = $"<w:p xmlns:w14=\"http://schemas.microsoft.com/office/word/2010/wordml\" xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:pPr><w:pStyle w:val=\"{window.ComboBox.Text}\" /></w:pPr><w:r></w:r><w:r ><w:t>{window.TextBox.Text}</w:t></w:r></w:p>";
 
-                        var section_id = SQLQuery.AddSection(name, $"<w:pStyle w:val=\"{window.ComboBox.Text}\" />", "");
-                        var versions_sections = SQLQuery.GetVersionNSectionConnection(version_section_id);
+                        var section_id = await SQLQuery.AddSection(name, $"<w:pStyle w:val=\"{window.ComboBox.Text}\" />", "");
+                        var versions_sections = await SQLQuery.GetVersionNSectionConnection(version_section_id);
                         foreach (var section in sections)
                         {
-                            SQLQuery.DeleteVersionNSectionConnection(version_id, section["id"]);
-                            SQLQuery.ConnectVersionNSection(version_id, section["id"]);
+                            await SQLQuery.DeleteVersionNSectionConnection(version_id, section["id"]);
+                            await SQLQuery.ConnectVersionNSection(version_id, section["id"]);
                             if (versions_sections[0]["section_id"] == section["id"])
                             {
-                                SQLQuery.ConnectVersionNSection(version_id, section_id);
+                                await SQLQuery.ConnectVersionNSection(version_id, section_id);
                             }
                         }
 
@@ -236,7 +236,7 @@ namespace SDMM
             }
         }
         
-        private void RemoveSection(object sender, RoutedEventArgs e)
+        private async void RemoveSection(object sender, RoutedEventArgs e)
         {
             MenuItem? item = sender as MenuItem;
 
@@ -247,8 +247,8 @@ namespace SDMM
                 {
 
                     this.Cursor = Cursors.Wait;
-                    var con = SQLQuery.GetVersionNSectionConnection(version_section_id);
-                    SQLQuery.UpdateVersionNSection(version_section_id, con[0]["version_id"], "0");
+                    var con = await SQLQuery.GetVersionNSectionConnection(version_section_id);
+                    await SQLQuery.UpdateVersionNSection(version_section_id, con[0]["version_id"], "0");
                     wordFile = new WordFile(version_id: con[0]["version_id"]);
                     LoadDocument(MainDoc, wordFile);
                     this.Cursor = Cursors.Arrow;
@@ -256,7 +256,7 @@ namespace SDMM
             }
         }
         
-        private void EditSection(object sender, RoutedEventArgs e)
+        private async void EditSection(object sender, RoutedEventArgs e)
         {
             MenuItem? item = sender as MenuItem;
 
@@ -277,23 +277,23 @@ namespace SDMM
                     if (window.DialogResult != null && window.DialogResult.Value)
                     {
                         this.Cursor = Cursors.Wait;
-                        var sections = SQLQuery.ReadSections(version_id);
-                        var versions_sections = SQLQuery.GetVersionNSectionConnection(version_section_id);
+                        var sections = await SQLQuery.ReadSections(version_id);
+                        var versions_sections = await SQLQuery.GetVersionNSectionConnection(version_section_id);
                         foreach (var section in sections)
                         {
-                            SQLQuery.DeleteVersionNSectionConnection(version_id, section["id"]);
+                            await SQLQuery.DeleteVersionNSectionConnection(version_id, section["id"]);
                             if (versions_sections[0]["section_id"] == section["id"])
                             {
-                                var old_section = SQLQuery.GetSection(section["id"]);
+                                var old_section = await SQLQuery.GetSection(section["id"]);
 
                                 string name = $"<w:p xmlns:w14=\"http://schemas.microsoft.com/office/word/2010/wordml\" xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:pPr><w:pStyle w:val=\"{window.ComboBox.Text}\" /></w:pPr><w:r></w:r><w:r ><w:t>{window.TextBox.Text}</w:t></w:r></w:p>";
 
-                                var section_id = SQLQuery.AddSection(name, $"<w:pStyle w:val=\"{window.ComboBox.Text}\" />", old_section[0]["text"]);
-                                SQLQuery.ConnectVersionNSection(version_id, section_id);
+                                var section_id = await SQLQuery.AddSection(name, $"<w:pStyle w:val=\"{window.ComboBox.Text}\" />", old_section[0]["text"]);
+                                await SQLQuery.ConnectVersionNSection(version_id, section_id);
                             }
                             else
                             {
-                                SQLQuery.ConnectVersionNSection(version_id, section["id"]);
+                                await SQLQuery.ConnectVersionNSection(version_id, section["id"]);
                             }
                         }
 
@@ -306,7 +306,7 @@ namespace SDMM
         }
         
         
-        private void CommentSection(object sender, RoutedEventArgs e)
+        private async void CommentSection(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -320,9 +320,9 @@ namespace SDMM
                     if (version_section_id != null && version_section_id != "")
                     {
                         commentTextBox.Tag = version_section_id;
-                        var comment_text = SQLQuery.ReadComment(version_section_id);
+                        var comment_text = await SQLQuery.ReadComment(version_section_id);
                         if (comment_text.Count == 0)
-                            SQLQuery.AddComment(version_section_id, "", "user");
+                            await SQLQuery.AddComment(version_section_id, "", "user");
                         trans = new Transaction(version_section_id, this);
                         OpenComment();
                         commentTextBox.Text = trans.StartTransaction();
@@ -408,12 +408,12 @@ namespace SDMM
             CancelButton.IsEnabled = true;
         }
 
-        private void compareButton_Click(object sender, RoutedEventArgs e)
+        private async void compareButton_Click(object sender, RoutedEventArgs e)
         {
             if (SecondDoc.Visibility == Visibility.Collapsed)
             {
-                string document_id = SQLQuery.GetVersion(version_id)[0]["document_id"];
-                var versions = SQLQuery.ReadVersions(document_id);
+                string document_id = (await SQLQuery.GetVersion(version_id))[0]["document_id"];
+                var versions = await SQLQuery.ReadVersions(document_id);
                 var res = new List<DataBaseEntities.Version>();
                 foreach(var version in versions)
                 {
@@ -509,13 +509,13 @@ namespace SDMM
 
         private static void ResetFormatting(FlowDocument doc)
         {
-            foreach (var block in doc.Blocks)
+            foreach (var block in doc.Blocks.ToList())
             {
                 if (block is Paragraph paragraph)
                 {
-                    TextRange range = new TextRange(paragraph.ContentStart, paragraph.ContentEnd);
-                    range.ClearAllProperties(); 
-                    range.ApplyPropertyValue(TextElement.BackgroundProperty, DependencyProperty.UnsetValue); 
+                    var range = new TextRange(paragraph.ContentStart, paragraph.ContentEnd);
+
+                    range.ApplyPropertyValue(TextElement.BackgroundProperty, Brushes.Transparent);
                 }
             }
         }

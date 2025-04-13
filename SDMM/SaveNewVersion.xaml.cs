@@ -44,7 +44,7 @@ namespace SDMM
         }
 
 
-        private void Save_Button_Click(object sender, RoutedEventArgs e)
+        private async void Save_Button_Click(object sender, RoutedEventArgs e)
         {
             if (versionTextBox.Text.Trim() != "")
             {
@@ -54,17 +54,17 @@ namespace SDMM
                     {
                         if (duplicateCheckBox.IsChecked.Value)
                         {
-                            var version = SQLQuery.GetLastVersion(document_id);
+                            var version = await SQLQuery.GetLastVersion(document_id);
                             string version_id = version[0]["id"];
 
-                            var sections = SQLQuery.ReadSections(version_id);
+                            var sections = await SQLQuery.ReadSections(version_id);
 
-                            string new_version_id = SQLQuery.AddVersion(document_id, versionTextBox.Text);
+                            string new_version_id = await SQLQuery.AddVersion(document_id, versionTextBox.Text);
 
                             foreach(var section in sections)
                             {
-                                string new_section_id = SQLQuery.AddSection(section["name"], section["style"], section["text"]);
-                                SQLQuery.ConnectVersionNSection(new_version_id, new_section_id);
+                                string new_section_id = await SQLQuery.AddSection(section["name"], section["style"], section["text"]);
+                                await SQLQuery.ConnectVersionNSection(new_version_id, new_section_id);
                             }
                         }
                         else
@@ -75,12 +75,12 @@ namespace SDMM
 
                                 var sections = wordFile.GetSections();
 
-                                string new_version_id = SQLQuery.AddVersion(document_id, versionTextBox.Text);
+                                string new_version_id = await SQLQuery.AddVersion(document_id, versionTextBox.Text);
 
                                 foreach (var section in sections)
                                 {
-                                    string new_section_id = SQLQuery.AddSection(section.name, section.style, section.text);
-                                    SQLQuery.ConnectVersionNSection(new_version_id, new_section_id);
+                                    string new_section_id = await SQLQuery.AddSection(section.name, section.style, section.text);
+                                    await SQLQuery.ConnectVersionNSection(new_version_id, new_section_id);
                                 }
                             }
                             catch

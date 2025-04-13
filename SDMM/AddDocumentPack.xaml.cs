@@ -6,12 +6,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace SDMM
 {
@@ -27,9 +21,9 @@ namespace SDMM
             LoadStandarts();
         }
 
-        private void LoadStandarts()
+        private async void LoadStandarts()
         {
-            var standarts = SQLQuery.ReadStandarts();
+            var standarts = await SQLQuery.ReadStandarts();
 
             foreach (var standart in standarts)
                 standartComboBox.Items.Add(new DataBaseEntities.Standart(standart["id"], standart["name"]));
@@ -37,9 +31,9 @@ namespace SDMM
             standartComboBox.SelectedIndex = 0;
         }
 
-        private void LoadDocumentTypes(string standart_id)
+        private async void LoadDocumentTypes(string standart_id)
         {
-            var document_types = SQLQuery.ReadDocumentTypes(standart_id);
+            var document_types = await SQLQuery.ReadDocumentTypes(standart_id);
 
             foreach(var document_type in document_types)
             {
@@ -91,7 +85,11 @@ namespace SDMM
         {
             List<DataBaseEntities.Document> docs = new List<DataBaseEntities.Document>();
 
-            var templates = SQLQuery.ReadTemplates();
+            var templates = Task.Run(async () =>
+            {
+                return await SQLQuery.ReadTemplates();
+            }).Result; 
+
             var templatesDic = new Dictionary<string, string>();
             foreach (var template in templates)
                 templatesDic.Add(template["id"], template["template_ref"]);

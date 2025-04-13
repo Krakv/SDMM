@@ -29,18 +29,18 @@ namespace SDMM
             FillField();
         }
 
-        private void FillField()
+        private async void FillField()
         {
-            var version = SQLQuery.GetVersion(version_id);
+            var version = await SQLQuery.GetVersion(version_id);
             versionTextBox.Text = version[0]["version"];
         }
 
-        private void Save_Click(object sender, RoutedEventArgs e)
+        private async void Save_Click(object sender, RoutedEventArgs e)
         {
 
             if (versionTextBox.Text.Trim() != "")
             {
-                SQLQuery.UpdateVersion(version_id, versionTextBox.Text);
+                await SQLQuery.UpdateVersion(version_id, versionTextBox.Text);
                 this.Close();
             }
             else

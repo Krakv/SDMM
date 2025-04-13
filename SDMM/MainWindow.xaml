@@ -72,20 +72,6 @@
             </Grid>
 
             <ListBox x:Name="DocumentsList" Grid.Row="1">
-                <ListBoxItem MouseDoubleClick="Document_Click" Tag="1">
-                    <StackPanel Margin="10,5,10,5" Width="350">
-                        <Separator Margin="0,0,0,10"/>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="⭐" FontSize="16" Margin="5"/>
-                            <TextBlock Text="Название документа" FontWeight="Bold" Style="{StaticResource Style1}"/>
-                        </StackPanel>
-                        <TextBlock Text="Последняя версия" Style="{StaticResource Style1}"/>
-                        <TextBlock Text="Размер" Style="{StaticResource Style1}"/>
-                        <TextBlock Text="Дата изменения" Style="{StaticResource Style1}"/>
-                        <TextBlock Text="Теги" FontStyle="Italic" Style="{StaticResource Style1}"/>
-                        <Separator Margin="0,10,0,0"/>
-                    </StackPanel>
-                </ListBoxItem>
             </ListBox>
         </Grid>
 
